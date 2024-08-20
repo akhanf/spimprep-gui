@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from pathlib import Path
 import re
 import subprocess
 import tempfile
@@ -114,14 +115,18 @@ class SPIMPrepApp:
 
 
     def run_spimprep(self):
+       
         self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
         repo = self.spimprep_repo.get()
         tag = self.spimprep_tag.get()
         git.Repo.clone_from(repo, self.temp_dir, branch=tag)
 
+        local_folder_name = Path(self.local_dataset_path.get()).name
+
         #create remote dataset path:
-        remote_dataset_path = f"{self.out_bids_uri.get()}/sourcedata/{self.subject.get()}_{self.sample.get()}_{self.acq.get()}"
-        remote_dataset_path_gs = "gs"+remote_dataset_path[3:]  #replace gcs:// with gs:// for gcloud storage cp
+        remote_dataset_root = f"{self.out_bids_uri.get()}/sourcedata"
+        remote_dataset_path = f"{remote_dataset_root}/{local_folder_name}"
+        remote_dataset_root_gs = "gs"+remote_dataset_root[3:]  #replace gcs:// with gs:// for gcloud storage cp
 
 
         # Prepare datasets.tsv
@@ -145,7 +150,7 @@ class SPIMPrepApp:
 
         # Run the gcloud storage cp command
         gcloud_cp_command = (
-            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_path_gs}"
+            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_root_gs}"
         )
 
 
@@ -162,6 +167,8 @@ class SPIMPrepApp:
         )
 
 
+         # Close the Tkinter window
+        self.root.destroy()
 
         # Chain the commands and run them
         self.run_commands([gcloud_cp_command, spimprep_command], self.temp_dir)
