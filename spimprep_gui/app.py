@@ -8,6 +8,10 @@ import threading
 import git
 from google.cloud import storage
 import os
+import io
+import time
+import sys
+
 
 class SPIMPrepApp:
     def __init__(self, root):
@@ -141,7 +145,7 @@ class SPIMPrepApp:
 
         # Run the gcloud storage cp command
         gcloud_cp_command = (
-            f"gcloud storage cp --recursive {self.local_dataset_path.get()} {remote_dataset_path_gs}"
+            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_path_gs}"
         )
 
 
@@ -163,45 +167,36 @@ class SPIMPrepApp:
         self.run_commands([gcloud_cp_command, spimprep_command], self.temp_dir)
 
 
+
+
     def run_commands(self, commands, working_dir):
-        output_window = tk.Toplevel(self.root)
-        output_window.title("Command Output")
-        text_widget = tk.Text(output_window, wrap='word')
-        text_widget.pack(fill=tk.BOTH, expand=True)
-        
-        def update_output(process):
-            for line in iter(process.stdout.readline, ''):
-                text_widget.insert(tk.END, line)
-                text_widget.see(tk.END)
-            for line in iter(process.stderr.readline, ''):
-                text_widget.insert(tk.END, line)
-                text_widget.see(tk.END)
-            process.stdout.close()
-            process.stderr.close()
-            process.wait()
-            text_widget.insert(tk.END, "\nProcess finished.\n")
-            text_widget.see(tk.END)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "process_output.log")
 
-        def run_in_thread(command):
-            process = subprocess.Popen(command, shell=True, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
-            threading.Thread(target=update_output, args=(process,)).start()
-            return process
-
-        # Run all commands sequentially
-        def execute_commands():
             for command in commands:
-                process = run_in_thread(command)
-                process.wait()
+                # Echo the command being run
+                print(f"\nRunning command: {command}\n")
 
-        # Start the command execution in a new thread
-        threading.Thread(target=execute_commands).start()
+                with io.open(log_file, "wb") as writer, io.open(log_file, "rb", 1) as reader:
+                    process = subprocess.Popen(command, shell=True, cwd=working_dir, stdout=writer, stderr=subprocess.STDOUT)
 
-        # Cancel button to kill the process
-        def cancel_process():
-            process.terminate()
-            output_window.destroy()
+                    # Continuously read from the log file and write to the terminal
+                    while process.poll() is None:
+                        sys.stdout.write(reader.read().decode())
+                        sys.stdout.flush()
+                        time.sleep(0.5)
 
-        tk.Button(output_window, text="Cancel", command=cancel_process).pack()
+                    # Ensure the remaining output is printed
+                    sys.stdout.write(reader.read().decode())
+                    sys.stdout.flush()
+
+                # Check if the process finished successfully
+                if process.returncode != 0:
+                    print(f"Command failed with return code {process.returncode}")
+                    break
+
+            print("All commands have finished running.")
+
 
 
     def on_closing(self):
