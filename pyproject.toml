@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "spimprep-gui"
+version = "0.1.0"
+description = ""
+authors = ["Ali Khan <alik@robarts.ca>"]
+readme = "README.md"
+packages = [{include = "spimprep_gui"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+GitPython = "^3.1.43"
+google-cloud-storage = "^2.18.2"
+google-auth = "^2.34.0"
+coiled = "^1.43.0"
+dask = "2024.7.1" #to match spimprep (not sure if this is required, at least python 3.12 should be used though)
+
+[tool.poetry.scripts]
+spimprep = 'spimprep_gui.app:main'
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
