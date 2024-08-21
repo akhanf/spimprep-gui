@@ -84,9 +84,10 @@ class SPIMPrepApp:
         frame = tk.LabelFrame(self.root, text="Local Execution")
         frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
 
-        self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="gcs://khanlab-lightsheet/data/marmoset_pilot/bids")
+        self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="/cifs/trident/projects/marmoset_pilot/lightsheet/bids_20240820")
+        self.out_work_dir = self.create_labeled_entry(frame, "Output Work directory:", 1, default="/cifs/trident/.temp_work_marmoset_pilot")
 
-        tk.Button(frame, text="Run SPIMprep local", command=self.run_spimprep_local).grid(row=2, column=0, columnspan=3, pady=10)
+        tk.Button(frame, text="Run SPIMprep local", command=self.run_spimprep_local).grid(row=3, column=0, columnspan=3, pady=10)
 
 
     def execution_method_frame(self):
@@ -241,6 +242,8 @@ class SPIMPrepApp:
     def run_spimprep_local(self):
        
         self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
+        
+        
         repo = self.spimprep_repo.get()
         tag = self.spimprep_tag.get()
         git.Repo.clone_from(repo, self.temp_dir, branch=tag)
@@ -270,11 +273,12 @@ class SPIMPrepApp:
         memory_mb = self.memory_mb.get()
         gcs_project = self.gcs_project.get()
         out_bids_dir = self.out_bids_dir.get()
+        out_work_dir = self.out_work_dir.get()
 
 
         snakemake_command = (
             f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_dir}"
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_dir} work={out_work_dir}"
         )
 
 
