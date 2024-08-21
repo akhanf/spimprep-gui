@@ -525,14 +525,14 @@ files = [
 
 [[package]]
 name = "coiled"
-version = "1.43.0"
+version = "1.44.0"
 description = "Python client for coiled.io dask clusters"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "coiled-1.43.0-py3-none-any.whl", hash = "sha256:1a07ccfd863a9790b7f068a9687fba348cd880a15d4dd979b69ebb2c0e7ebe36"},
-    {file = "coiled-1.43.0.tar.gz", hash = "sha256:8d86728209096eeb4fb8badee2edf9d5a15145e4e34fa309c1fe7648b25a802d"},
+    {file = "coiled-1.44.0-py3-none-any.whl", hash = "sha256:9c37b02a939846d6b7f18df0135cafcfef1f378adb70520ee63d26d2053f95ac"},
+    {file = "coiled-1.44.0.tar.gz", hash = "sha256:aeefdd0f69b71383d34d19e15cc02709080d6ebcdca0f24ff4150de5f72d1144"},
 ]
 
 [package.dependencies]
@@ -2831,4 +2831,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "6d12cebb3748313ddf551e9b8882373ac0043401bd565afe537e794725b83fb1"
+content-hash = "f30d774d9ccbdd7d3d888810d9079a30cddda6b8242770658b8b1f59d0ee5c28"

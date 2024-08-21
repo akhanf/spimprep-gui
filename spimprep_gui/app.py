@@ -43,10 +43,16 @@ class SPIMPrepApp:
 
         # Global settings
         self.gcs_project = self.create_labeled_entry(frame, "GCS Project:", 0, default="t-system-193821")
-        self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="e2-standard-32")
-        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 2, default="128000")
-        self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 3, default="https://github.com/khanlab/SPIMprep")
-        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 4, default="cloudinput")
+        self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-highmem-56")
+        self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="56")
+        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="440000")
+        #self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="e2-standard-32")
+        #self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
+        #self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
+
+        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="0")
+        self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
+        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="cloudinput")
 
 
     def dataset_info_frame(self):
@@ -193,9 +199,12 @@ class SPIMPrepApp:
 
         # Run the SPIMprep command
         memory_mb = self.memory_mb.get()
+        cores = self.cores.get()
         gcs_project = self.gcs_project.get()
         vm_type = self.vm_type.get()
         out_bids_uri = self.out_bids_uri.get()
+        disk_size = self.disk_size.get()
+
 
 
         # Run the gcloud storage cp command
@@ -213,15 +222,15 @@ class SPIMPrepApp:
                 pass  
         
 
-        # then calculate the size of the dataset
-        size_GiB=self.calc_gcs_folder_size(remote_dataset_path)
-
-        disk_size = int(size_GiB * 1.6) #request disk 160% the size of the dataset (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
+        # then calculate the size of the dataset if the requested size is 0
+        if disk_size == 0:
+            size_GiB=self.calc_gcs_folder_size(remote_dataset_path)
+            disk_size = int(size_GiB * 1.6) #request disk 160% the size of the dataset (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
 
 
         snakemake_command = (
             f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri}"
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} cores_per_rule={cores} --show-failed-logs"
         )
 
 
@@ -271,6 +280,7 @@ class SPIMPrepApp:
 
         # Run the SPIMprep command
         memory_mb = self.memory_mb.get()
+        cores = self.cores.get()
         gcs_project = self.gcs_project.get()
         out_bids_dir = self.out_bids_dir.get()
         out_work_dir = self.out_work_dir.get()
@@ -278,7 +288,7 @@ class SPIMPrepApp:
 
         snakemake_command = (
             f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_dir} work={out_work_dir}"
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_dir} cores_per_rule={cores} work={out_work_dir} --show-failed-logs"
         )
 
 

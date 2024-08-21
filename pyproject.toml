@@ -11,7 +11,7 @@ python = "^3.12"
 GitPython = "^3.1.43"
 google-cloud-storage = "^2.18.2"
 google-auth = "^2.34.0"
-coiled = "^1.43.0"
+coiled = "^1.44.0"
 dask = "2024.7.1" #to match spimprep (not sure if this is required, at least python 3.12 should be used though)
 gcsfs = "^2024.6.1"
 
