@@ -12,6 +12,9 @@ import os
 import io
 import time
 import sys
+import gcsfs
+
+
 
 
 class SPIMPrepApp:
@@ -19,10 +22,16 @@ class SPIMPrepApp:
         self.root = root
         self.root.title("SPIMprep Configuration Tool")
 
+
+        # Add a StringVar to hold the selection for execution method
+        #self.execution_method = tk.StringVar(value="remote")  # Default is "coiled" remote
+
+
         self.temp_dir = None  # Initialize temp_dir to None
         self.global_settings_frame()
         self.dataset_info_frame()
         self.output_uri_frame()
+        self.output_dir_frame()
 
         # Ensure cleanup is called when the window is closed
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -38,6 +47,7 @@ class SPIMPrepApp:
         self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 2, default="128000")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 3, default="https://github.com/khanlab/SPIMprep")
         self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 4, default="cloudinput")
+
 
     def dataset_info_frame(self):
         self.dataset_frame = tk.LabelFrame(self.root, text="Dataset Information")
@@ -62,13 +72,30 @@ class SPIMPrepApp:
         tk.Button(self.dataset_frame, text="Browse", command=self.browse_dataset_path).grid(row=5, column=2)
 
     def output_uri_frame(self):
-        frame = tk.LabelFrame(self.root, text="Output Settings")
+        frame = tk.LabelFrame(self.root, text="Cloud Execution")
         frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
 
         self.out_bids_uri = self.create_labeled_entry(frame, "Output BIDS URI:", 0, default="gcs://khanlab-lightsheet/data/marmoset_pilot/bids")
 
         tk.Button(frame, text="Check URI", command=self.check_gcs_uri).grid(row=1, column=0, columnspan=3, pady=10)
-        tk.Button(frame, text="Run SPIMprep", command=self.run_spimprep).grid(row=2, column=0, columnspan=3, pady=10)
+        tk.Button(frame, text="Run SPIMprep cloud", command=self.run_spimprep_cloud).grid(row=2, column=0, columnspan=3, pady=10)
+
+    def output_dir_frame(self):
+        frame = tk.LabelFrame(self.root, text="Local Execution")
+        frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+
+        self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="gcs://khanlab-lightsheet/data/marmoset_pilot/bids")
+
+        tk.Button(frame, text="Run SPIMprep local", command=self.run_spimprep_local).grid(row=2, column=0, columnspan=3, pady=10)
+
+
+    def execution_method_frame(self):
+        frame = tk.LabelFrame(self.root, text="Execution Method")
+        frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+
+        tk.Radiobutton(frame, text="Remote (Coiled on Google Cloud)", variable=self.execution_method, value="coiled").grid(row=0, column=0, padx=5, pady=5)
+        tk.Radiobutton(frame, text="Local (Singularity)", variable=self.execution_method, value="local").grid(row=0, column=1, padx=5, pady=5)
+
 
     def create_labeled_entry(self, parent, label_text, row, default="", regex=None):
         tk.Label(parent, text=label_text).grid(row=row, column=0, sticky="e")
@@ -113,8 +140,23 @@ class SPIMPrepApp:
         except Exception as e:
             messagebox.showerror("Error", f"Cannot write to URI: {e}")
 
+    def calc_gcs_folder_size(self,uri):
 
-    def run_spimprep(self):
+        fs = gcsfs.GCSFileSystem()
+
+        # List all files under the given URI
+        file_list = fs.ls(uri)
+
+        total_size = 0
+        for file in file_list:
+            # Get the file info and add its size to the total
+            file_info = fs.info(file)
+            total_size += file_info['size']
+
+        total_size_gib = total_size / (1024 ** 3)
+        return total_size_gib
+
+    def run_spimprep_cloud(self):
        
         self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
         repo = self.spimprep_repo.get()
@@ -126,8 +168,8 @@ class SPIMPrepApp:
         #create remote dataset path:
         remote_dataset_root = f"{self.out_bids_uri.get()}/sourcedata"
         remote_dataset_path = f"{remote_dataset_root}/{local_folder_name}"
+        touch_path = f"{remote_dataset_path}/.transfer_completed"
         remote_dataset_root_gs = "gs"+remote_dataset_root[3:]  #replace gcs:// with gs:// for gcloud storage cp
-
 
         # Prepare datasets.tsv
         dataset_info = {
@@ -148,30 +190,105 @@ class SPIMPrepApp:
             f.write(values + '\n')
 
 
-        # Run the gcloud storage cp command
-        gcloud_cp_command = (
-            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_root_gs}"
-        )
-
-
         # Run the SPIMprep command
         memory_mb = self.memory_mb.get()
         gcs_project = self.gcs_project.get()
         vm_type = self.vm_type.get()
         out_bids_uri = self.out_bids_uri.get()
 
-        spimprep_command = (
+
+        # Run the gcloud storage cp command
+        gcloud_cp_command = (
+            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_root_gs}"
+        )
+
+
+        # first check if the completion touch-file exists:
+        fs = gcsfs.GCSFileSystem()
+        if not fs.exists(touch_path):
+            # run the cp command first and touch the completion flag
+            self.run_commands([gcloud_cp_command], self.temp_dir)
+            with fs.open(touch_path, 'wb') as f:
+                pass  
+        
+
+        # then calculate the size of the dataset
+        size_GiB=self.calc_gcs_folder_size(remote_dataset_path)
+
+        disk_size = int(size_GiB * 1.6) #request disk 160% the size of the dataset (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
+
+
+        snakemake_command = (
+            f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri}"
+        )
+
+
+        coiled_command = (
             f"coiled run --file config --file resources --file workflow --file qc --software spimprep-deps "
-            f"\"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri}\" --vm-type {vm_type} --forward-gcp-adc"
+            f"--vm-type {vm_type} --disk-size {disk_size} --forward-gcp-adc \"{snakemake_command}\""
         )
 
 
          # Close the Tkinter window
         self.root.destroy()
 
-        # Chain the commands and run them
-        self.run_commands([gcloud_cp_command, spimprep_command], self.temp_dir)
+        # Run the spimprep command
+        
+        self.run_commands([coiled_command], self.temp_dir)
+
+
+    def run_spimprep_local(self):
+       
+        self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
+        repo = self.spimprep_repo.get()
+        tag = self.spimprep_tag.get()
+        git.Repo.clone_from(repo, self.temp_dir, branch=tag)
+
+
+        # Prepare datasets.tsv
+        dataset_info = {
+            "subject": self.subject.get(),
+            "sample": self.sample.get(),
+            "acq": self.acq.get(),
+            "stain_0": self.stains[0].get(),
+            "dataset_path": self.local_dataset_path.get(),
+        }
+        for i, stain_var in enumerate(self.stains[1:], start=1):
+            dataset_info[f"stain_{i}"] = stain_var.get()
+
+        datasets_tsv_path = os.path.join(self.temp_dir, 'config', 'datasets.tsv')
+        with open(datasets_tsv_path, 'w') as f:
+            headers = '\t'.join(dataset_info.keys())
+            f.write(headers + '\n')
+            values = '\t'.join(dataset_info.values())
+            f.write(values + '\n')
+
+
+
+        # Run the SPIMprep command
+        memory_mb = self.memory_mb.get()
+        gcs_project = self.gcs_project.get()
+        out_bids_dir = self.out_bids_dir.get()
+
+
+        snakemake_command = (
+            f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_dir}"
+        )
+
+
+        singularity_command = (
+            f"singularity exec -e docker://khanlab/spimprep-deps:main {snakemake_command}"
+        )
+
+
+         # Close the Tkinter window
+        self.root.destroy()
+
+        # Run the spimprep command
+        
+        self.run_commands([singularity_command], self.temp_dir)
 
 
 
@@ -184,18 +301,25 @@ class SPIMPrepApp:
                 # Echo the command being run
                 print(f"\nRunning command: {command}\n")
 
-                with io.open(log_file, "wb") as writer, io.open(log_file, "rb", 1) as reader:
-                    process = subprocess.Popen(command, shell=True, cwd=working_dir, stdout=writer, stderr=subprocess.STDOUT)
+                with io.open(log_file, "w") as writer, io.open(log_file, "r", 1) as reader:
+                    process = subprocess.Popen(command, shell=True, cwd=working_dir, stdout=writer, stderr=subprocess.STDOUT, text=True)
 
                     # Continuously read from the log file and write to the terminal
                     while process.poll() is None:
-                        sys.stdout.write(reader.read().decode())
-                        sys.stdout.flush()
+                        output = reader.read()
+                        if output:
+                            sys.stdout.write(output)
+                            sys.stdout.flush()
                         time.sleep(0.5)
 
+
                     # Ensure the remaining output is printed
-                    sys.stdout.write(reader.read().decode())
-                    sys.stdout.flush()
+                    remaining_output = reader.read()
+                    if remaining_output:
+                        sys.stdout.write(remaining_output)
+                        sys.stdout.flush()
+
+
 
                 # Check if the process finished successfully
                 if process.returncode != 0:
