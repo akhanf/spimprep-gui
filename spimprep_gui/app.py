@@ -64,7 +64,7 @@ class SPIMPrepApp:
         self.acq = self.create_labeled_entry(self.dataset_frame, "Acquisition (acq):", 2, default="blaze", regex="^[a-zA-Z0-9]+$")
 
         # Stain options
-        self.stain_presets = ["autof", "abeta", "PI"]
+        self.stain_presets = ["autof", "abeta", "PI","undefined0","undefined1","undefined2"]
         self.stains = []
 
         self.add_stain_row()
@@ -176,7 +176,7 @@ class SPIMPrepApp:
         remote_dataset_root = f"{self.out_bids_uri.get()}/sourcedata"
         remote_dataset_path = f"{remote_dataset_root}/{local_folder_name}"
         touch_path = f"{remote_dataset_path}/.transfer_completed"
-        remote_dataset_root_gs = "gs"+remote_dataset_root[3:]  #replace gcs:// with gs:// for gcloud storage cp
+        remote_dataset_path_gs = "gs"+remote_dataset_path[3:]  #replace gcs:// with gs:// for gcloud storage cp
 
         # Prepare datasets.tsv
         dataset_info = {
@@ -209,7 +209,7 @@ class SPIMPrepApp:
 
         # Run the gcloud storage cp command
         gcloud_cp_command = (
-            f"gcloud storage cp --no-clobber --recursive {self.local_dataset_path.get()} {remote_dataset_root_gs}"
+            f"gcloud storage cp --recursive {self.local_dataset_path.get()} {remote_dataset_path_gs}"
         )
 
 
