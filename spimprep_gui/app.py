@@ -235,7 +235,7 @@ class SPIMPrepApp:
 
 
         coiled_command = (
-            f"coiled run --file config --file resources --file workflow --file qc --software spimprep-deps "
+            f"coiled run --file config --file resources --file workflow --software spimprep-deps "
             f"--vm-type {vm_type} --disk-size {disk_size} --forward-gcp-adc \"{snakemake_command}\""
         )
 
