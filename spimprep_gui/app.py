@@ -45,14 +45,14 @@ class SPIMPrepApp:
         self.gcs_project = self.create_labeled_entry(frame, "GCS Project:", 0, default="t-system-193821")
         self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-highmem-56")
         self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="56")
-        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="440000")
+        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="400000")
         #self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="e2-standard-32")
         #self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
         #self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
 
-        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="0")
+        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="1500")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
-        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="cloudinput")
+        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="save-work")
 
 
     def dataset_info_frame(self):
@@ -230,7 +230,7 @@ class SPIMPrepApp:
 
         snakemake_command = (
             f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} cores_per_rule={cores} --show-failed-logs"
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} cores_per_rule={cores} save_work=True --show-failed-logs"
         )
 
 
