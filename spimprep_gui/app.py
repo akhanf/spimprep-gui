@@ -43,16 +43,16 @@ class SPIMPrepApp:
 
         # Global settings
         self.gcs_project = self.create_labeled_entry(frame, "GCS Project:", 0, default="t-system-193821")
-        self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-highmem-56")
-        self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="56")
-        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="400000")
+        self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-standard-32")
+        self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
+        self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="120000")
         #self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="e2-standard-32")
         #self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
         #self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
 
         self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="1500")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
-        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="save-work")
+        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="main")
 
 
     def dataset_info_frame(self):
@@ -64,7 +64,7 @@ class SPIMPrepApp:
         self.acq = self.create_labeled_entry(self.dataset_frame, "Acquisition (acq):", 2, default="blaze", regex="^[a-zA-Z0-9]+$")
 
         # Stain options
-        self.stain_presets = ["autof", "abeta", "PI","undefined0","undefined1","undefined2"]
+        self.stain_presets = ["AutoF", "Abeta", "PI","AlphaSynuclein","GFAP","Gq","Lectin","Iba1","undefined0","undefined1","undefined2"]
         self.stains = []
 
         self.add_stain_row()
@@ -90,8 +90,8 @@ class SPIMPrepApp:
         frame = tk.LabelFrame(self.root, text="Local Execution")
         frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
 
-        self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="/cifs/trident/projects/marmoset_pilot/lightsheet/bids_20240820")
-        self.out_work_dir = self.create_labeled_entry(frame, "Output Work directory:", 1, default="/cifs/trident/.temp_work_marmoset_pilot")
+        self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="/cifs/trident/projects/NAME_OF_PROJECT/lightsheet/bids")
+        self.out_work_dir = self.create_labeled_entry(frame, "Output Work directory:", 1, default="/cifs/trident/.work/NAME_OF_PROJECT")
 
         tk.Button(frame, text="Run SPIMprep local", command=self.run_spimprep_local).grid(row=3, column=0, columnspan=3, pady=10)
 
@@ -229,8 +229,8 @@ class SPIMPrepApp:
 
 
         snakemake_command = (
-            f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
-            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} cores_per_rule={cores} save_work=True --show-failed-logs"
+            f"snakemake -c all --set-resources bigstitcher_stitching:mem_mb={memory_mb} bigstitcher_fusion:mem_mb={memory_mb} "
+            f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} cores_per_rule={cores} --show-failed-logs"
         )
 
 
@@ -287,13 +287,13 @@ class SPIMPrepApp:
 
 
         snakemake_command = (
-            f"snakemake -c all --set-resources bigstitcher:mem_mb={memory_mb} fuse_dataset:mem_mb={memory_mb} "
+            f"snakemake -c all --set-resources bigstitcher_stitching:mem_mb={memory_mb} bigstitcher_solver:mem_mb={memory_mb} bigstitcher_fusion:mem_mb={memory_mb}"
             f"--storage-gcs-project {gcs_project} --config root={out_bids_dir} cores_per_rule={cores} work={out_work_dir} --show-failed-logs"
         )
 
 
         singularity_command = (
-            f"singularity exec -e docker://khanlab/spimprep-deps:main {snakemake_command}"
+            f"singularity exec -e docker://khanlab/spimprep-deps:v0.1.0 {snakemake_command}"
         )
 
 
