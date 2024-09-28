@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "spimprep-gui"
 version = "0.1.0"
-description = ""
+description = "GUI for launching SPIMprep jobs (google cloud or local execution)"
 authors = ["Ali Khan <alik@robarts.ca>"]
 readme = "README.md"
 packages = [{include = "spimprep_gui"}]
