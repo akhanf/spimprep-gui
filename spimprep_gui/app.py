@@ -208,10 +208,11 @@ class SPIMPrepApp:
 
 
         # Run the gcloud storage cp command
+        exclude=r'".*\\.ims$|.*\\.mp4$"'
         gcloud_cp_command = (
-            f"gcloud storage cp --recursive {self.local_dataset_path.get()} {remote_dataset_path_gs}"
+            f"gcloud storage rsync  --recursive --exclude={exclude} {self.local_dataset_path.get()} {remote_dataset_path_gs}"
         )
-
+        print(gcloud_cp_command)
 
         # first check if the completion touch-file exists:
         fs = gcsfs.GCSFileSystem()
