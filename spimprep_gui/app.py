@@ -50,9 +50,9 @@ class SPIMPrepApp:
         #self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
         #self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
 
-        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="1500")
+        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="2000")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
-        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="main")
+        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="tifzstacks")
 
 
     def dataset_info_frame(self):
