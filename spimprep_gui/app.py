@@ -1,31 +1,30 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 import shutil
+import io
+import time
+import sys
+import os
+import gcsfs
+from datetime import datetime
+from tinydb import TinyDB, Query
+import re
 import threading
 import git
 from google.cloud import storage
 import os
-import io
-import time
-import sys
-import gcsfs
-
-
 
 
 class SPIMPrepApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SPIMprep Configuration Tool")
-
-
-        # Add a StringVar to hold the selection for execution method
-        #self.execution_method = tk.StringVar(value="remote")  # Default is "coiled" remote
-
+        
+        # Create or open the TinyDB database
+        self.db = TinyDB('spimprep_jobs.json')
 
         self.temp_dir = None  # Initialize temp_dir to None
         self.global_settings_frame()
@@ -33,27 +32,23 @@ class SPIMPrepApp:
         self.output_uri_frame()
         self.output_dir_frame()
 
+        # New Frame for Loading Previous Jobs
+        self.previous_runs_frame()
+
         # Ensure cleanup is called when the window is closed
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-    
 
     def global_settings_frame(self):
         frame = tk.LabelFrame(self.root, text="Global Settings")
         frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
-        # Global settings
         self.gcs_project = self.create_labeled_entry(frame, "GCS Project:", 0, default="t-system-193821")
         self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-standard-32")
         self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
         self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="120000")
-        #self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="e2-standard-32")
-        #self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="32")
-        #self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
-
         self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="2000")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
         self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="tifzstacks")
-
 
     def dataset_info_frame(self):
         self.dataset_frame = tk.LabelFrame(self.root, text="Dataset Information")
@@ -63,12 +58,9 @@ class SPIMPrepApp:
         self.sample = self.create_labeled_entry(self.dataset_frame, "Sample:", 1, default="brain", regex="^[a-zA-Z0-9]+$")
         self.acq = self.create_labeled_entry(self.dataset_frame, "Acquisition (acq):", 2, default="blaze", regex="^[a-zA-Z0-9]+$")
 
-        # Stain options
-        self.stain_presets = ["AutoF", "Abeta", "PI","AlphaSynuclein","GFAP","Gq","Lectin","Iba1","undefined0","undefined1","undefined2"]
+        self.stain_presets = ["AutoF", "Abeta", "PI", "AlphaSynuclein", "GFAP", "Gq", "Lectin", "Iba1", "undefined0", "undefined1", "undefined2"]
         self.stains = []
-
         self.add_stain_row()
-
         tk.Button(self.dataset_frame, text="Add Stain", command=self.add_stain_row).grid(row=4, column=0, columnspan=3, pady=10)
 
         # Dataset path
@@ -82,7 +74,6 @@ class SPIMPrepApp:
         frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
 
         self.out_bids_uri = self.create_labeled_entry(frame, "Output BIDS URI:", 0, default="gcs://khanlab-lightsheet/data/marmoset_pilot/bids")
-
         tk.Button(frame, text="Check URI", command=self.check_gcs_uri).grid(row=1, column=0, columnspan=3, pady=10)
         tk.Button(frame, text="Run SPIMprep cloud", command=self.run_spimprep_cloud).grid(row=2, column=0, columnspan=3, pady=10)
 
@@ -92,8 +83,87 @@ class SPIMPrepApp:
 
         self.out_bids_dir = self.create_labeled_entry(frame, "Output BIDS directory:", 0, default="/cifs/trident/projects/NAME_OF_PROJECT/lightsheet/bids")
         self.out_work_dir = self.create_labeled_entry(frame, "Output Work directory:", 1, default="/cifs/trident/.work/NAME_OF_PROJECT")
-
         tk.Button(frame, text="Run SPIMprep local", command=self.run_spimprep_local).grid(row=3, column=0, columnspan=3, pady=10)
+
+    def previous_runs_frame(self):
+        """ Frame to load and resubmit previous runs """
+        frame = tk.LabelFrame(self.root, text="Previous Runs")
+        frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
+
+        # Dropdown for previous runs
+        tk.Label(frame, text="Select Previous Run:").grid(row=0, column=0, sticky="e")
+        self.previous_run_var = tk.StringVar(frame)
+
+        # Initialize the OptionMenu but with an empty list initially
+        self.previous_run_menu = tk.OptionMenu(frame, self.previous_run_var, "")
+        self.previous_run_menu.grid(row=0, column=1)
+
+        # Populate the dropdown after initializing the menu
+        self.populate_previous_runs_dropdown()
+
+        # Button to load the selected run
+        tk.Button(frame, text="Load Run", command=self.load_previous_run).grid(row=1, column=0, columnspan=2, pady=10)
+
+    def populate_previous_runs_dropdown(self):
+        """ Refresh dropdown menu options from the database """
+        menu = self.previous_run_menu["menu"]
+        menu.delete(0, "end")
+        for run in self.get_previous_runs():
+            menu.add_command(label=run, command=lambda value=run: self.previous_run_var.set(value))
+
+
+    def get_previous_runs(self):
+        """ Return a list of previous run identifiers (e.g., timestamp or job_id) """
+        return [str(job['job_id']) + " - " + job['subject'] for job in self.db.all()]
+
+    def load_previous_run(self):
+        """ Load a previous run's parameters into the UI """
+        job_id = int(self.previous_run_var.get().split(" ")[0])  # Get the job_id from the selected run
+        job_query = Query()
+        result = self.db.search(job_query.job_id == job_id)
+
+        if result:
+            job_data = result[0]
+            self.subject.delete(0, tk.END)
+            self.subject.insert(0, job_data['subject'])
+
+            self.sample.delete(0, tk.END)
+            self.sample.insert(0, job_data['sample'])
+
+            self.acq.delete(0, tk.END)
+            self.acq.insert(0, job_data['acq'])
+
+            self.local_dataset_path.delete(0, tk.END)
+            self.local_dataset_path.insert(0, job_data['dataset_path'])
+
+            for i, stain_var in enumerate(self.stains):
+                stain_var.set(job_data.get(f'stain_{i}', ''))
+
+    def add_submission_to_db(self):
+        """ Add the current submission to the TinyDB database """
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        job_id = len(self.db) + 1  # Simple job_id increment
+
+        submission = {
+            'job_id': job_id,
+            'timestamp': timestamp,
+            'subject': self.subject.get(),
+            'sample': self.sample.get(),
+            'acq': self.acq.get(),
+            'dataset_path': self.local_dataset_path.get(),
+            'processing_parameters': {
+                'memory_mb': self.memory_mb.get(),
+                'cores': self.cores.get(),
+                'vm_type': self.vm_type.get()
+            }
+        }
+
+        for i, stain_var in enumerate(self.stains):
+            submission[f'stain_{i}'] = stain_var.get()
+
+        self.db.insert(submission)
+        self.populate_previous_runs_dropdown()  # Update dropdown after new submission
+
 
 
     def execution_method_frame(self):
@@ -165,6 +235,9 @@ class SPIMPrepApp:
 
     def run_spimprep_cloud(self):
        
+        self.add_submission_to_db()
+
+
         self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
         repo = self.spimprep_repo.get()
         tag = self.spimprep_tag.get()
@@ -196,6 +269,7 @@ class SPIMPrepApp:
             values = '\t'.join(dataset_info.values())
             f.write(values + '\n')
 
+    
 
         # Run the SPIMprep command
         memory_mb = self.memory_mb.get()
@@ -251,6 +325,8 @@ class SPIMPrepApp:
 
     def run_spimprep_local(self):
        
+        self.add_submission_to_db()
+
         self.temp_dir = tempfile.mkdtemp()  # Create a persistent temporary directory
         
         

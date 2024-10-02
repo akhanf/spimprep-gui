@@ -2487,6 +2487,18 @@ files = [
 ]
 
 [[package]]
+name = "tinydb"
+version = "4.8.0"
+description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
+category = "main"
+optional = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "tinydb-4.8.0-py3-none-any.whl", hash = "sha256:30c06d12383d7c332e404ca6a6103fb2b32cbf25712689648c39d9a6bd34bd3d"},
+    {file = "tinydb-4.8.0.tar.gz", hash = "sha256:6dd686a9c5a75dfa9280088fd79a419aefe19cd7f4bd85eba203540ef856d564"},
+]
+
+[[package]]
 name = "toml"
 version = "0.10.2"
 description = "Python Library for Tom's Obvious, Minimal Language"
@@ -2831,4 +2843,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "f30d774d9ccbdd7d3d888810d9079a30cddda6b8242770658b8b1f59d0ee5c28"
+content-hash = "a09ad7d600ba0406cfb82d206be98c5daf8a620ada0a4b4a3fa6fcbb2c7a8f19"
