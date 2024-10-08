@@ -28,7 +28,7 @@ class SPIMPrepApp:
 
         self.temp_dir = None  # Initialize temp_dir to None
         self.global_settings_frame()
-        self.dataset_info_frame()
+        self.sample_info_frame()
         self.output_uri_frame()
         self.output_dir_frame()
 
@@ -46,28 +46,30 @@ class SPIMPrepApp:
         self.vm_type = self.create_labeled_entry(frame, "VM Type:", 1, default="c2d-highmem-16")
         self.cores = self.create_labeled_entry(frame, "Core per rule:", 2, default="16")
         self.memory_mb = self.create_labeled_entry(frame, "Memory (MB):", 3, default="128000")
-        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of dataset size):", 4, default="1500")
+        self.disk_size = self.create_labeled_entry(frame, "Disk Size (GiB, default 0 will request 160% of sample size):", 4, default="1500")
         self.spimprep_repo = self.create_labeled_entry(frame, "SPIMprep Repo:", 5, default="https://github.com/khanlab/SPIMprep")
-        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="tifzstacks")
+        self.spimprep_tag = self.create_labeled_entry(frame, "SPIMprep Tag:", 6, default="main")
 
-    def dataset_info_frame(self):
-        self.dataset_frame = tk.LabelFrame(self.root, text="Dataset Information")
-        self.dataset_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+    def sample_info_frame(self):
+        self.sample_frame = tk.LabelFrame(self.root, text="Sample Information")
+        self.sample_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
-        self.subject = self.create_labeled_entry(self.dataset_frame, "Subject:", 0, regex="^[a-zA-Z0-9]+$")
-        self.sample = self.create_labeled_entry(self.dataset_frame, "Sample:", 1, default="brain", regex="^[a-zA-Z0-9]+$")
-        self.acq = self.create_labeled_entry(self.dataset_frame, "Acquisition (acq):", 2, default="blaze", regex="^[a-zA-Z0-9]+$")
+        self.subject = self.create_labeled_entry(self.sample_frame, "Subject:", 0, regex="^[a-zA-Z0-9]+$")
+        self.sample = self.create_labeled_entry(self.sample_frame, "Sample:", 1, default="brain", regex="^[a-zA-Z0-9]+$")
+        self.acq = self.create_labeled_entry(self.sample_frame, "Acquisition (acq):", 2, default="blaze", regex="^[a-zA-Z0-9]+$")
 
-        self.stain_presets = ["AutoF", "Abeta", "PI", "AlphaSynuclein", "GFAP", "Gq", "Lectin", "Iba1", "undefined0", "undefined1", "undefined2"]
+        self.stain_presets = ["n/a","AutoF", "Abeta", "PI", "AlphaSynuclein", "GFAP", "Gq", "Lectin", "Iba1", "undefined0", "undefined1", "undefined2"]
         self.stains = []
         self.add_stain_row()
-        tk.Button(self.dataset_frame, text="Add Stain", command=self.add_stain_row).grid(row=4, column=0, columnspan=3, pady=10)
+        self.add_stain_row()
+        self.add_stain_row()
+        tk.Button(self.sample_frame, text="Add Channel", command=self.add_stain_row).grid(row=4, column=0, columnspan=3, pady=10)
 
-        # Dataset path
-        tk.Label(self.dataset_frame, text="Dataset Path:").grid(row=5, column=0, sticky="e")
-        self.local_dataset_path = tk.Entry(self.dataset_frame, width=50)
-        self.local_dataset_path.grid(row=5, column=1)
-        tk.Button(self.dataset_frame, text="Browse", command=self.browse_dataset_path).grid(row=5, column=2)
+        # Sample path
+        tk.Label(self.sample_frame, text="Sample Path:").grid(row=8, column=0, sticky="e")
+        self.local_sample_path = tk.Entry(self.sample_frame, width=50)
+        self.local_sample_path.grid(row=8, column=1)
+        tk.Button(self.sample_frame, text="Browse", command=self.browse_sample_path).grid(row=8, column=2)
 
     def output_uri_frame(self):
         frame = tk.LabelFrame(self.root, text="Cloud Execution")
@@ -133,8 +135,8 @@ class SPIMPrepApp:
             self.acq.delete(0, tk.END)
             self.acq.insert(0, job_data['acq'])
 
-            self.local_dataset_path.delete(0, tk.END)
-            self.local_dataset_path.insert(0, job_data['dataset_path'])
+            self.local_sample_path.delete(0, tk.END)
+            self.local_sample_path.insert(0, job_data['sample_path'])
 
             for i, stain_var in enumerate(self.stains):
                 stain_var.set(job_data.get(f'stain_{i}', ''))
@@ -150,7 +152,7 @@ class SPIMPrepApp:
             'subject': self.subject.get(),
             'sample': self.sample.get(),
             'acq': self.acq.get(),
-            'dataset_path': self.local_dataset_path.get(),
+            'sample_path': self.local_sample_path.get(),
             'processing_parameters': {
                 'memory_mb': self.memory_mb.get(),
                 'cores': self.cores.get(),
@@ -194,15 +196,15 @@ class SPIMPrepApp:
         stain_var = tk.StringVar(value=self.stain_presets[0])
         self.stains.append(stain_var)
 
-        tk.Label(self.dataset_frame, text=label).grid(row=3+index, column=0, sticky="e")
-        stain_menu = tk.OptionMenu(self.dataset_frame, stain_var, *self.stain_presets)
+        tk.Label(self.sample_frame, text=label).grid(row=3+index, column=0, sticky="e")
+        stain_menu = tk.OptionMenu(self.sample_frame, stain_var, *self.stain_presets)
         stain_menu.grid(row=3+index, column=1, sticky="w")
 
-    def browse_dataset_path(self):
+    def browse_sample_path(self):
         directory = filedialog.askdirectory()
         if directory:
-            self.local_dataset_path.delete(0, tk.END)
-            self.local_dataset_path.insert(0, directory)
+            self.local_sample_path.delete(0, tk.END)
+            self.local_sample_path.insert(0, directory)
 
     def check_gcs_uri(self):
         uri = self.out_bids_uri.get()
@@ -243,30 +245,30 @@ class SPIMPrepApp:
         tag = self.spimprep_tag.get()
         git.Repo.clone_from(repo, self.temp_dir, branch=tag)
 
-        local_folder_name = Path(self.local_dataset_path.get()).name
+        local_folder_name = Path(self.local_sample_path.get()).name
 
-        #create remote dataset path:
-        remote_dataset_root = f"{self.out_bids_uri.get()}/sourcedata"
-        remote_dataset_path = f"{remote_dataset_root}/{local_folder_name}"
-        touch_path = f"{remote_dataset_path}/.transfer_completed"
-        remote_dataset_path_gs = "gs"+remote_dataset_path[3:]  #replace gcs:// with gs:// for gcloud storage cp
+        #create remote sample path:
+        remote_bids_root = f"{self.out_bids_uri.get()}/sourcedata"
+        remote_sample_path = f"{remote_bids_root}/{local_folder_name}"
+        touch_path = f"{remote_sample_path}/.transfer_completed"
+        remote_sample_path_gs = "gs"+remote_sample_path[3:]  #replace gcs:// with gs:// for gcloud storage cp
 
-        # Prepare datasets.tsv
-        dataset_info = {
+        # Prepare samples.tsv
+        sample_info = {
             "subject": self.subject.get(),
             "sample": self.sample.get(),
             "acq": self.acq.get(),
             "stain_0": self.stains[0].get(),
-            "dataset_path": remote_dataset_path,
+            "sample_path": remote_sample_path,
         }
         for i, stain_var in enumerate(self.stains[1:], start=1):
-            dataset_info[f"stain_{i}"] = stain_var.get()
+            sample_info[f"stain_{i}"] = stain_var.get()
 
-        datasets_tsv_path = os.path.join(self.temp_dir, 'config', 'datasets.tsv')
-        with open(datasets_tsv_path, 'w') as f:
-            headers = '\t'.join(dataset_info.keys())
+        samples_tsv_path = os.path.join(self.temp_dir, 'config', 'samples.tsv')
+        with open(samples_tsv_path, 'w') as f:
+            headers = '\t'.join(sample_info.keys())
             f.write(headers + '\n')
-            values = '\t'.join(dataset_info.values())
+            values = '\t'.join(sample_info.values())
             f.write(values + '\n')
 
     
@@ -284,7 +286,7 @@ class SPIMPrepApp:
         # Run the gcloud storage cp command
         exclude=r'".*\\.ims$|.*\\.mp4$"'
         gcloud_cp_command = (
-            f"gcloud storage rsync  --recursive --exclude={exclude} {self.local_dataset_path.get()} {remote_dataset_path_gs}"
+            f"gcloud storage rsync  --recursive --exclude={exclude} {self.local_sample_path.get()} {remote_sample_path_gs}"
         )
         print(gcloud_cp_command)
 
@@ -297,10 +299,10 @@ class SPIMPrepApp:
                 pass  
         
 
-        # then calculate the size of the dataset if the requested size is 0
+        # then calculate the size of the sample if the requested size is 0
         if disk_size == 0:
-            size_GiB=self.calc_gcs_folder_size(remote_dataset_path)
-            disk_size = int(size_GiB * 1.6) #request disk 160% the size of the dataset (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
+            size_GiB=self.calc_gcs_folder_size(remote_sample_path)
+            disk_size = int(size_GiB * 1.6) #request disk 160% the size of the sample (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
 
 
         snakemake_command = (
@@ -336,22 +338,22 @@ class SPIMPrepApp:
         git.Repo.clone_from(repo, self.temp_dir, branch=tag)
 
 
-        # Prepare datasets.tsv
-        dataset_info = {
+        # Prepare samples.tsv
+        sample_info = {
             "subject": self.subject.get(),
             "sample": self.sample.get(),
             "acq": self.acq.get(),
             "stain_0": self.stains[0].get(),
-            "dataset_path": self.local_dataset_path.get(),
+            "sample_path": self.local_sample_path.get(),
         }
         for i, stain_var in enumerate(self.stains[1:], start=1):
-            dataset_info[f"stain_{i}"] = stain_var.get()
+            sample_info[f"stain_{i}"] = stain_var.get()
 
-        datasets_tsv_path = os.path.join(self.temp_dir, 'config', 'datasets.tsv')
-        with open(datasets_tsv_path, 'w') as f:
-            headers = '\t'.join(dataset_info.keys())
+        samples_tsv_path = os.path.join(self.temp_dir, 'config', 'samples.tsv')
+        with open(samples_tsv_path, 'w') as f:
+            headers = '\t'.join(sample_info.keys())
             f.write(headers + '\n')
-            values = '\t'.join(dataset_info.values())
+            values = '\t'.join(sample_info.values())
             f.write(values + '\n')
 
 
