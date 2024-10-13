@@ -138,6 +138,30 @@ class SPIMPrepApp:
             self.local_sample_path.delete(0, tk.END)
             self.local_sample_path.insert(0, job_data['sample_path'])
 
+            self.out_bids_uri.delete(0, tk.END)
+            self.out_bids_uri.insert(0, job_data['out_bids_uri'])
+
+            self.gcs_project.delete(0, tk.END)
+            self.gcs_project.insert(0, job_data['processing_parameters']['gcs_project'])
+
+            self.memory_mb.delete(0, tk.END)
+            self.memory_mb.insert(0, job_data['processing_parameters']['memory_mb'])
+
+            self.cores.delete(0, tk.END)
+            self.cores.insert(0, job_data['processing_parameters']['cores'])
+
+            self.vm_type.delete(0, tk.END)
+            self.vm_type.insert(0, job_data['processing_parameters']['vm_type'])
+
+            self.disk_size.delete(0, tk.END)
+            self.disk_size.insert(0, job_data['processing_parameters']['disk_size'])
+
+            self.spimprep_repo.delete(0, tk.END)
+            self.spimprep_repo.insert(0, job_data['processing_parameters']['spimprep_repo'])
+
+            self.spimprep_tag.delete(0, tk.END)
+            self.spimprep_tag.insert(0, job_data['processing_parameters']['spimprep_tag'])
+
             for i, stain_var in enumerate(self.stains):
                 stain_var.set(job_data.get(f'stain_{i}', ''))
 
@@ -153,10 +177,15 @@ class SPIMPrepApp:
             'sample': self.sample.get(),
             'acq': self.acq.get(),
             'sample_path': self.local_sample_path.get(),
+            'out_bids_uri': self.out_bids_uri.get(),
             'processing_parameters': {
                 'memory_mb': self.memory_mb.get(),
                 'cores': self.cores.get(),
-                'vm_type': self.vm_type.get()
+                'vm_type': self.vm_type.get(),
+                'gcs_project': self.gcs_project.get(),
+                'disk_size': self.disk_size.get(),
+                'spimprep_repo': self.spimprep_repo.get(),
+                'spimprep_tag': self.spimprep_tag.get(),
             }
         }
 
@@ -304,7 +333,7 @@ class SPIMPrepApp:
             size_GiB=self.calc_gcs_folder_size(remote_sample_path)
             disk_size = int(size_GiB * 1.6) #request disk 160% the size of the sample (note if we optimize the importing in SPIMprep to go directly from bucket to zarr without copying first, then this can be much lower)
 
-
+        
         snakemake_command = (
             f"snakemake -c all  "
             f"--storage-gcs-project {gcs_project} --config root={out_bids_uri} total_cores={cores} total_mem_mb={memory_mb} --show-failed-logs"
@@ -317,6 +346,7 @@ class SPIMPrepApp:
             f"--vm-type {vm_type} --disk-size {disk_size} --forward-gcp-adc \"{snakemake_command}\""
         )
 
+        print(coiled_command)
 
          # Close the Tkinter window
         self.root.destroy()
